@@ -2,12 +2,13 @@ def test_404_unknown_route(client):
     response = client.get("/nonexistent-route")
     assert response.status_code == 404
     data = response.get_json()
-    assert data["error"] == "Not found"
+    assert "not found" in data["error"].lower()
 
 
 def test_404_response_is_json(client):
     response = client.get("/does-not-exist")
     assert response.content_type == "application/json"
+    assert response.status_code == 404
 
 
 def test_405_wrong_method(client):

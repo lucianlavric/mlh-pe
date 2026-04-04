@@ -10,14 +10,25 @@ class BaseModel(Model):
         database = db
 
 
-def init_db(app):
-    database = PostgresqlDatabase(
+def _make_database():
+    return PostgresqlDatabase(
         os.environ.get("DATABASE_NAME", "hackathon_db"),
         host=os.environ.get("DATABASE_HOST", "localhost"),
         port=int(os.environ.get("DATABASE_PORT", 5432)),
         user=os.environ.get("DATABASE_USER", "postgres"),
         password=os.environ.get("DATABASE_PASSWORD", "postgres"),
     )
+
+
+def init_db_standalone():
+    """Initialize database without Flask (for scripts like seed.py)."""
+    database = _make_database()
+    db.initialize(database)
+    db.connect()
+
+
+def init_db(app):
+    database = _make_database()
     db.initialize(database)
 
     @app.before_request

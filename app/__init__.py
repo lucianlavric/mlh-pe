@@ -2,19 +2,25 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify
 
 from app.database import init_db
+from app.errors import register_error_handlers
 from app.routes import register_routes
 
 
-def create_app():
+def create_app(config=None):
     load_dotenv()
 
     app = Flask(__name__)
 
-    init_db(app)
+    if config:
+        app.config.update(config)
+
+    if not app.config.get("TESTING"):
+        init_db(app)
 
     from app import models  # noqa: F401 - registers models with Peewee
 
     register_routes(app)
+    register_error_handlers(app)
 
     @app.route("/health")
     def health():

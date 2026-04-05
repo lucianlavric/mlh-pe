@@ -154,12 +154,25 @@ def bulk_upload_urls():
         return jsonify(error="Empty CSV"), 400
 
     imported = 0
+    skipped = 0
     with db.atomic():
         for row in rows:
+            # Validate user exists
+            uid = row.get("user_id")
+            if uid:
+                try:
+                    uid = int(uid)
+                except (ValueError, TypeError):
+                    skipped += 1
+                    continue
+                if not User.get_or_none(User.id == uid):
+                    skipped += 1
+                    continue
+
             if "is_active" in row:
                 row["is_active"] = row["is_active"] in ("True", "true", "1")
             Url.create(
-                user=row.get("user_id"),
+                user=uid,
                 short_code=row.get("short_code", _generate_short_code()),
                 original_url=row.get("original_url", ""),
                 title=row.get("title", ""),

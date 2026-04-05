@@ -151,12 +151,23 @@ def test_redirect_success(client, sample_url):
     assert response.headers["Location"] == "https://example.com/long-url"
 
 
+def test_redirect_logs_event(client, sample_url):
+    """The Unseen Observer: every redirect must be recorded."""
+    from app.models.event import Event
+
+    client.get(f"/{sample_url.short_code}")
+    events = list(Event.select().where(Event.event_type == "redirect"))
+    assert len(events) == 1
+    assert events[0].url.id == sample_url.id
+
+
 def test_redirect_not_found(client):
     response = client.get("/XXXXXX")
     assert response.status_code == 404
 
 
 def test_redirect_inactive_url(client, sample_user):
+    """The Slumbering Guide: inactive URLs must not redirect."""
     from app.models.url import Url
 
     url = Url.create(
@@ -170,6 +181,25 @@ def test_redirect_inactive_url(client, sample_user):
     )
     response = client.get(f"/{url.short_code}")
     assert response.status_code == 410
+
+
+def test_redirect_inactive_no_event(client, sample_user):
+    """The Slumbering Guide: inactive URLs must leave no footprint."""
+    from app.models.event import Event
+    from app.models.url import Url
+
+    url = Url.create(
+        user=sample_user,
+        short_code="DEAD02",
+        original_url="https://example.com/dead2",
+        title="Inactive",
+        is_active=False,
+        created_at="2025-01-01 00:00:00",
+        updated_at="2025-01-01 00:00:00",
+    )
+    client.get(f"/{url.short_code}")
+    events = list(Event.select().where(Event.event_type == "redirect"))
+    assert len(events) == 0
 
 
 # --- PUT /urls/<id> ---

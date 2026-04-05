@@ -114,6 +114,17 @@ def redirect_short_url(short_code):
         return jsonify(error="Short URL not found"), 404
     if not url.is_active:
         return jsonify(error="This short URL has been deactivated"), 410
+
+    # The Unseen Observer: log every redirect
+    now = datetime.now(timezone.utc)
+    Event.create(
+        url=url,
+        user=url.user,
+        event_type="redirect",
+        timestamp=now,
+        details=json.dumps({"short_code": url.short_code, "original_url": url.original_url}),
+    )
+
     return redirect(url.original_url, code=302)
 
 

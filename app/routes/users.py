@@ -42,7 +42,7 @@ def get_user(user_id):
 @users_bp.route("/users", methods=["POST"])
 def create_user():
     data = request.get_json(silent=True)
-    if not data:
+    if not data or not isinstance(data, dict):
         return jsonify(error="Request body must be JSON"), 400
 
     username = data.get("username")

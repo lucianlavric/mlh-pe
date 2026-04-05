@@ -63,7 +63,7 @@ def _url_to_dict(url):
 
 def _create_url_from_data(data):
     """Shared logic for POST /shorten and POST /urls."""
-    if not data:
+    if not data or not isinstance(data, dict):
         return jsonify(error="Request body must be JSON"), 400
 
     # Accept both "url" and "original_url" field names
@@ -100,6 +100,8 @@ def _create_url_from_data(data):
             return jsonify(error="Could not generate unique short code"), 500
 
     title = data.get("title", "")
+    if title and not isinstance(title, str):
+        return jsonify(error="title must be a string"), 400
 
     now = datetime.now(timezone.utc)
 
@@ -264,7 +266,7 @@ def update_url(url_id):
         return jsonify(error="URL not found"), 404
 
     data = request.get_json(silent=True)
-    if not data:
+    if not data or not isinstance(data, dict):
         return jsonify(error="Request body must be JSON"), 400
 
     changes = {}

@@ -50,7 +50,7 @@ def create_user():
 
     if not username or not isinstance(username, str):
         return jsonify(error="Invalid or missing username"), 400
-    if not email or not isinstance(email, str):
+    if not email or not isinstance(email, str) or "@" not in email:
         return jsonify(error="Invalid or missing email"), 400
 
     now = datetime.now(timezone.utc)

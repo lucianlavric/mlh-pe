@@ -279,6 +279,8 @@ def update_url(url_id):
         changes["original_url"] = url.original_url
 
     if "title" in data:
+        if data["title"] is not None and not isinstance(data["title"], str):
+            return jsonify(error="title must be a string"), 400
         url.title = data["title"]
         changes["title"] = url.title
 

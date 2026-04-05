@@ -1,7 +1,9 @@
 import os
+from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify
+from flask.json.provider import DefaultJSONProvider
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -9,6 +11,15 @@ from app.database import init_db
 from app.errors import register_error_handlers
 from app.logging_config import setup_logging
 from app.routes import register_routes
+
+
+class ISOJSONProvider(DefaultJSONProvider):
+    """Return datetimes in ISO 8601 format instead of RFC 2822."""
+    @staticmethod
+    def default(o):
+        if isinstance(o, datetime):
+            return o.strftime("%Y-%m-%dT%H:%M:%S")
+        return DefaultJSONProvider.default(o)
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -21,6 +32,8 @@ def create_app(config=None):
     load_dotenv()
 
     app = Flask(__name__)
+    app.json_provider_class = ISOJSONProvider
+    app.json = ISOJSONProvider(app)
 
     if config:
         app.config.update(config)

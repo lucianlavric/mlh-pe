@@ -312,3 +312,34 @@ def test_delete_creates_event(client, sample_url):
     client.delete(f"/urls/{sample_url.id}")
     events = list(Event.select().where(Event.event_type == "deleted"))
     assert len(events) >= 1
+
+
+# --- POST /urls (test-expected endpoint) ---
+
+
+def test_create_url_via_post_urls(client, sample_user):
+    response = client.post(
+        "/urls",
+        data=json.dumps({
+            "user_id": sample_user.id,
+            "original_url": "https://example.com/post-urls-test",
+            "title": "Test via POST /urls",
+        }),
+        content_type="application/json",
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["original_url"] == "https://example.com/post-urls-test"
+    assert data["user_id"] == sample_user.id
+    assert len(data["short_code"]) == 6
+
+
+# --- GET /urls?user_id=X filtering ---
+
+
+def test_list_urls_filter_by_user(client, sample_url, sample_user):
+    response = client.get(f"/urls?user_id={sample_user.id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert len(data) >= 1
+    assert all(u["user_id"] == sample_user.id for u in data)

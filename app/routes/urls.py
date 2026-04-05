@@ -3,7 +3,7 @@ import string
 import random
 from datetime import datetime, timezone
 
-from flask import Blueprint, abort, jsonify, redirect, request
+from flask import Blueprint, jsonify, redirect, request
 from playhouse.shortcuts import model_to_dict
 
 from app import limiter
@@ -51,14 +51,26 @@ def _is_valid_url(url):
     return True
 
 
-@urls_bp.route("/shorten", methods=["POST"])
-@limiter.limit("30 per minute")
-def shorten_url():
-    data = request.get_json(silent=True)
+def _url_to_dict(url):
+    """Serialize a URL to dict with flat user_id and url_id fields."""
+    d = model_to_dict(url, recurse=False)
+    # Ensure user_id is a flat integer
+    d["user_id"] = d.pop("user", url.user_id)
+    return d
+
+
+def _create_url_from_data(data):
+    """Shared logic for POST /shorten and POST /urls."""
     if not data:
         return jsonify(error="Request body must be JSON"), 400
 
-    original_url = data.get("url", "").strip() if isinstance(data.get("url"), str) else ""
+    # Accept both "url" and "original_url" field names
+    original_url = data.get("original_url") or data.get("url", "")
+    if isinstance(original_url, str):
+        original_url = original_url.strip()
+    else:
+        original_url = ""
+
     if not _is_valid_url(original_url):
         return jsonify(error="Invalid or missing URL. Must start with http:// or https://"), 400
 
@@ -107,7 +119,21 @@ def shorten_url():
             details=json.dumps({"short_code": short_code, "original_url": original_url}),
         )
 
-    return jsonify(model_to_dict(url)), 201
+    return jsonify(_url_to_dict(url)), 201
+
+
+@urls_bp.route("/shorten", methods=["POST"])
+@limiter.limit("30 per minute")
+def shorten_url():
+    data = request.get_json(silent=True)
+    return _create_url_from_data(data)
+
+
+@urls_bp.route("/urls", methods=["POST"])
+@limiter.limit("30 per minute")
+def create_url():
+    data = request.get_json(silent=True)
+    return _create_url_from_data(data)
 
 
 @urls_bp.route("/<short_code>")
@@ -134,7 +160,6 @@ def redirect_short_url(short_code):
     if not url:
         return jsonify(error="Short URL not found"), 404
     if not url.is_active:
-        # Cache inactive status too
         cache_set(cache_key, {"id": url.id, "user_id": url.user_id, "original_url": url.original_url, "is_active": False})
         return jsonify(error="This short URL has been deactivated"), 410
 
@@ -159,8 +184,19 @@ def list_urls():
     page, per_page = _parse_pagination()
     if page is None:
         return jsonify(error="Invalid pagination parameters"), 400
-    urls = Url.select().order_by(Url.id).paginate(page, per_page)
-    return jsonify([model_to_dict(u) for u in urls])
+
+    query = Url.select().order_by(Url.id)
+
+    # Support ?user_id=X filtering
+    user_id = request.args.get("user_id")
+    if user_id:
+        try:
+            query = query.where(Url.user == int(user_id))
+        except (ValueError, TypeError):
+            return jsonify(error="Invalid user_id filter"), 400
+
+    urls = query.paginate(page, per_page)
+    return jsonify([_url_to_dict(u) for u in urls])
 
 
 @urls_bp.route("/urls/<int:url_id>")
@@ -168,7 +204,7 @@ def get_url(url_id):
     url = Url.get_or_none(Url.id == url_id)
     if not url:
         return jsonify(error="URL not found"), 404
-    return jsonify(model_to_dict(url))
+    return jsonify(_url_to_dict(url))
 
 
 @urls_bp.route("/urls/code/<short_code>")
@@ -176,7 +212,7 @@ def get_url_by_code(short_code):
     url = Url.get_or_none(Url.short_code == short_code)
     if not url:
         return jsonify(error="URL not found"), 404
-    return jsonify(model_to_dict(url))
+    return jsonify(_url_to_dict(url))
 
 
 @urls_bp.route("/urls/<int:url_id>", methods=["PUT"])
@@ -191,10 +227,11 @@ def update_url(url_id):
 
     changes = {}
 
-    if "url" in data:
-        if not _is_valid_url(data["url"]):
+    if "url" in data or "original_url" in data:
+        new_url = data.get("original_url") or data.get("url")
+        if not _is_valid_url(new_url):
             return jsonify(error="Invalid URL. Must start with http:// or https://"), 400
-        url.original_url = data["url"].strip()
+        url.original_url = new_url.strip()
         changes["original_url"] = url.original_url
 
     if "title" in data:
@@ -226,7 +263,7 @@ def update_url(url_id):
     # Invalidate cache
     cache_delete(f"url:{url.short_code}")
 
-    return jsonify(model_to_dict(url))
+    return jsonify(_url_to_dict(url))
 
 
 @urls_bp.route("/urls/<int:url_id>", methods=["DELETE"])

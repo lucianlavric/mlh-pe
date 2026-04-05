@@ -41,6 +41,11 @@ services:
       FLASK_DEBUG: "false"
       INSTANCE_ID: "web-1"
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
 
   web-2:
     build: .
@@ -58,6 +63,11 @@ services:
       FLASK_DEBUG: "false"
       INSTANCE_ID: "web-2"
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
 
   web-3:
     build: .
@@ -75,6 +85,11 @@ services:
       FLASK_DEBUG: "false"
       INSTANCE_ID: "web-3"
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
 
   nginx:
     image: nginx:alpine

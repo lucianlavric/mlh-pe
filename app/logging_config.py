@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+import uuid
 
 from flask import g, request
 
@@ -15,6 +16,8 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
             "instance": os.environ.get("INSTANCE_ID", "local"),
         }
+        if hasattr(g, "request_id"):
+            log_entry["request_id"] = g.request_id
         if record.exc_info and record.exc_info[0]:
             log_entry["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_entry)
@@ -34,10 +37,12 @@ def setup_logging(app):
     @app.before_request
     def _log_request_start():
         g.start_time = time.time()
+        g.request_id = str(uuid.uuid4())[:8]
 
     @app.after_request
     def _log_request_end(response):
         duration = time.time() - getattr(g, "start_time", time.time())
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "unknown")
         app.logger.info(
             json.dumps({
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -47,6 +52,7 @@ def setup_logging(app):
                 "path": request.path,
                 "status": response.status_code,
                 "duration_ms": round(duration * 1000, 2),
+                "request_id": getattr(g, "request_id", "unknown"),
                 "instance": os.environ.get("INSTANCE_ID", "local"),
             })
         )

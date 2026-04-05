@@ -32,6 +32,26 @@ def create_app(config=None):
 
     @app.route("/health")
     def health():
-        return jsonify(status="ok")
+        checks = {"status": "ok"}
+        if not app.config.get("TESTING"):
+            # Deep health check: verify DB and Redis
+            try:
+                from app.database import db as _db
+                _db.execute_sql("SELECT 1")
+                checks["database"] = "connected"
+            except Exception:
+                checks["database"] = "disconnected"
+                checks["status"] = "degraded"
+            try:
+                from app.cache import get_redis
+                r = get_redis()
+                if r and r.ping():
+                    checks["redis"] = "connected"
+                else:
+                    checks["redis"] = "disconnected"
+            except Exception:
+                checks["redis"] = "disconnected"
+        status_code = 200 if checks["status"] == "ok" else 503
+        return jsonify(checks), status_code
 
     return app

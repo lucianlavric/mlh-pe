@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, abort, jsonify, redirect, request
 from playhouse.shortcuts import model_to_dict
 
+from app import limiter
 from app.cache import cache_delete, cache_get, cache_set
 from app.database import db
 from app.models.event import Event
@@ -51,6 +52,7 @@ def _is_valid_url(url):
 
 
 @urls_bp.route("/shorten", methods=["POST"])
+@limiter.limit("30 per minute")
 def shorten_url():
     data = request.get_json(silent=True)
     if not data:

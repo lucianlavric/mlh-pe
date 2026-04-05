@@ -1,10 +1,20 @@
+import os
+
 from dotenv import load_dotenv
 from flask import Flask, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from app.database import init_db
 from app.errors import register_error_handlers
 from app.logging_config import setup_logging
 from app.routes import register_routes
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per minute"],
+    storage_uri=os.environ.get("REDIS_URL", "memory://"),
+)
 
 
 def create_app(config=None):
@@ -18,6 +28,7 @@ def create_app(config=None):
     if not app.config.get("TESTING"):
         init_db(app)
         setup_logging(app)
+        limiter.init_app(app)
 
     from app.models import Event, Url, User  # noqa: F401 - registers models
 

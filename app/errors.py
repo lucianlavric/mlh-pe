@@ -14,6 +14,10 @@ def register_error_handlers(app):
     def method_not_allowed(e):
         return jsonify(error="Method not allowed", status=405), 405
 
+    @app.errorhandler(429)
+    def rate_limited(e):
+        return jsonify(error="Rate limit exceeded. Try again later.", status=429), 429
+
     @app.errorhandler(500)
     def internal_error(e):
         return jsonify(error="Internal server error", status=500), 500

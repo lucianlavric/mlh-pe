@@ -17,7 +17,13 @@ def create_app(config=None):
     if not app.config.get("TESTING"):
         init_db(app)
 
-    from app import models  # noqa: F401 - registers models with Peewee
+    from app.models import Event, Url, User  # noqa: F401 - registers models
+
+    if not app.config.get("TESTING"):
+        from app.database import db
+        db.connect(reuse_if_open=True)
+        db.create_tables([User, Url, Event])
+        db.close()
 
     register_routes(app)
     register_error_handlers(app)

@@ -195,6 +195,14 @@ def list_urls():
         except (ValueError, TypeError):
             return jsonify(error="Invalid user_id filter"), 400
 
+    # Support ?is_active=true/false filtering
+    is_active = request.args.get("is_active")
+    if is_active is not None:
+        if is_active.lower() in ("true", "1"):
+            query = query.where(Url.is_active == True)
+        elif is_active.lower() in ("false", "0"):
+            query = query.where(Url.is_active == False)
+
     urls = query.paginate(page, per_page)
     return jsonify([_url_to_dict(u) for u in urls])
 

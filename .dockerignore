@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.env
+.coverage
+.pytest_cache
+__pycache__
+*.pyc
+tests/
+seed_data/
+*.md
+loadtest.js
+.DS_Store
+.claude/

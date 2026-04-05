@@ -90,8 +90,11 @@ def create_event():
     except (ValueError, TypeError):
         return jsonify(error="Invalid url_id or user_id"), 400
 
-    if not Url.get_or_none(Url.id == url_id):
+    url_obj = Url.get_or_none(Url.id == url_id)
+    if not url_obj:
         return jsonify(error="URL not found"), 404
+    if not url_obj.is_active:
+        return jsonify(error="Cannot create event for inactive URL"), 400
     if not User.get_or_none(User.id == user_id):
         return jsonify(error="User not found"), 404
 

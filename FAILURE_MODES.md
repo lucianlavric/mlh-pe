@@ -61,3 +61,36 @@ curl http://localhost:5000/health
 
 **What happens:** Database connections are not properly closed after requests.
 **Mitigation:** Flask's `teardown_appcontext` hook closes the Peewee database connection after every request, even if the request raised an exception.
+
+## 8. Duplicate Short Codes
+
+**What happens:** A client submits a `POST /shorten` with a `short_code` that already exists.
+**Symptom:** Returns `409 Conflict` with `{"error": "Short code already exists"}`.
+**Mitigation:** The endpoint checks uniqueness before inserting. The database also enforces a unique constraint on `short_code`.
+
+## 9. Deactivated URL Access
+
+**What happens:** A client tries to follow a short URL that has been deactivated (soft-deleted).
+**Symptom:** Returns `410 Gone` with `{"error": "This short URL has been deactivated"}`. No redirect event is logged.
+**Mitigation:** The redirect handler checks `is_active` before redirecting. Inactive URLs are clearly distinguished from missing ones (410 vs 404).
+
+---
+
+## Capacity Assumptions and Known Limits
+
+| Resource | Limit | Notes |
+|----------|-------|-------|
+| Short code space | ~56 billion codes | 62^6 alphanumeric combinations |
+| Concurrent connections | ~100-200 | Flask dev server is single-threaded; use gunicorn for production |
+| Database connections | 1 per request | Opened on request, closed on teardown |
+| Bulk insert batch size | 100 rows | Used in seed script; prevents memory spikes |
+| Max URL length | Unlimited (TEXT column) | PostgreSQL TEXT has no practical limit |
+| Pagination default | 20 items/page | Prevents large response payloads |
+
+### Known Limitations
+
+- **Single-process Flask dev server:** Not suitable for high-concurrency production use. For production, use gunicorn with multiple workers.
+- **No rate limiting:** The API has no rate limiting. A malicious client could create millions of short URLs.
+- **No authentication:** All endpoints are public. Any client can create, update, or delete URLs.
+- **No caching:** Every redirect hits the database. For high-traffic short URLs, a Redis cache would help.
+- **Sequential short code generation:** Under extreme concurrency, two requests could generate the same code simultaneously. The database unique constraint prevents data corruption, but one request would fail.

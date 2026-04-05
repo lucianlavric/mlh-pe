@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, abort, jsonify, redirect, request
 from playhouse.shortcuts import model_to_dict
 
+from app.cache import cache_delete, cache_get, cache_set
 from app.database import db
 from app.models.event import Event
 from app.models.url import Url
@@ -109,11 +110,34 @@ def shorten_url():
 
 @urls_bp.route("/<short_code>")
 def redirect_short_url(short_code):
+    # Try Redis cache first
+    cache_key = f"url:{short_code}"
+    cached = cache_get(cache_key)
+    if cached:
+        if not cached["is_active"]:
+            return jsonify(error="This short URL has been deactivated"), 410
+        # Log redirect event (still need DB for this)
+        now = datetime.now(timezone.utc)
+        Event.create(
+            url=cached["id"],
+            user=cached["user_id"],
+            event_type="redirect",
+            timestamp=now,
+            details=json.dumps({"short_code": short_code, "original_url": cached["original_url"]}),
+        )
+        return redirect(cached["original_url"], code=302)
+
+    # Cache miss — query DB
     url = Url.get_or_none(Url.short_code == short_code)
     if not url:
         return jsonify(error="Short URL not found"), 404
     if not url.is_active:
+        # Cache inactive status too
+        cache_set(cache_key, {"id": url.id, "user_id": url.user_id, "original_url": url.original_url, "is_active": False})
         return jsonify(error="This short URL has been deactivated"), 410
+
+    # Cache the URL for future redirects
+    cache_set(cache_key, {"id": url.id, "user_id": url.user_id, "original_url": url.original_url, "is_active": True})
 
     # The Unseen Observer: log every redirect
     now = datetime.now(timezone.utc)
@@ -197,6 +221,9 @@ def update_url(url_id):
             details=json.dumps(changes),
         )
 
+    # Invalidate cache
+    cache_delete(f"url:{url.short_code}")
+
     return jsonify(model_to_dict(url))
 
 
@@ -219,5 +246,8 @@ def delete_url(url_id):
             timestamp=now,
             details=json.dumps({"short_code": url.short_code}),
         )
+
+    # Invalidate cache
+    cache_delete(f"url:{url.short_code}")
 
     return jsonify(message="URL deactivated"), 200

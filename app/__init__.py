@@ -3,6 +3,7 @@ from flask import Flask, jsonify
 
 from app.database import init_db
 from app.errors import register_error_handlers
+from app.logging_config import setup_logging
 from app.routes import register_routes
 
 
@@ -16,6 +17,7 @@ def create_app(config=None):
 
     if not app.config.get("TESTING"):
         init_db(app)
+        setup_logging(app)
 
     from app.models import Event, Url, User  # noqa: F401 - registers models
 

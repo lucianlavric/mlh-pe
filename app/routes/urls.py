@@ -78,9 +78,14 @@ def _create_url_from_data(data):
 
     user_id = data.get("user_id")
     if user_id is not None:
+        # Reject booleans and floats — only accept int or string-int
+        if isinstance(user_id, bool) or isinstance(user_id, float):
+            return jsonify(error="Invalid user_id"), 400
         try:
             user_id = int(user_id)
         except (ValueError, TypeError):
+            return jsonify(error="Invalid user_id"), 400
+        if user_id < 1:
             return jsonify(error="Invalid user_id"), 400
         user = User.get_or_none(User.id == user_id)
         if not user:

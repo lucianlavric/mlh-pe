@@ -82,6 +82,8 @@ def create_event():
     if not isinstance(event_type, str):
         return jsonify(error="event_type must be a string"), 400
 
+    if isinstance(url_id, (bool, float)) or isinstance(user_id, (bool, float)):
+        return jsonify(error="Invalid url_id or user_id"), 400
     try:
         url_id = int(url_id)
         user_id = int(user_id)

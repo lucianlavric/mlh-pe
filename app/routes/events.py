@@ -38,8 +38,24 @@ def list_events():
     page, per_page = _parse_pagination()
     if page is None:
         return jsonify(error="Invalid pagination parameters"), 400
-    query = Event.select().order_by(Event.id).paginate(page, per_page)
-    return jsonify([_event_to_dict(e) for e in query])
+    query = Event.select().order_by(Event.id)
+
+    url_id = request.args.get("url_id")
+    if url_id:
+        try:
+            query = query.where(Event.url == int(url_id))
+        except (ValueError, TypeError):
+            return jsonify(error="Invalid url_id filter"), 400
+
+    user_id = request.args.get("user_id")
+    if user_id:
+        try:
+            query = query.where(Event.user == int(user_id))
+        except (ValueError, TypeError):
+            return jsonify(error="Invalid user_id filter"), 400
+
+    events = query.paginate(page, per_page)
+    return jsonify([_event_to_dict(e) for e in events])
 
 
 @events_bp.route("/events/<int:event_id>")

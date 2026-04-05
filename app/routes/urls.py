@@ -95,8 +95,10 @@ def _create_url_from_data(data):
 
     short_code = data.get("short_code")
     if short_code:
-        if not isinstance(short_code, str) or len(short_code) < 1:
+        if not isinstance(short_code, str) or len(short_code) < 1 or len(short_code) > 10:
             return jsonify(error="Invalid short_code"), 400
+        if not short_code.isalnum():
+            return jsonify(error="short_code must be alphanumeric"), 400
         if Url.select().where(Url.short_code == short_code).exists():
             return jsonify(error="Short code already exists"), 409
     else:

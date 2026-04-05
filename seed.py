@@ -43,6 +43,14 @@ def seed():
             Event.insert_many(batch).execute()
     print(f"Loaded {len(events)} events")
 
+    # Reset PostgreSQL sequences after bulk insert with explicit IDs
+    for table in ["users", "urls", "events"]:
+        db.execute_sql(
+            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+            f"(SELECT MAX(id) FROM {table}))"
+        )
+    print("Sequences reset.")
+
     print("Seeding complete!")
 
 

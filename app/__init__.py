@@ -56,25 +56,35 @@ def create_app(config=None):
 
     @app.route("/health")
     def health():
-        checks = {"status": "ok"}
+        from datetime import datetime, timezone
+        checks = {
+            "status": "ok",
+            "version": "1.0.0",
+            "instance": os.environ.get("INSTANCE_ID", "local"),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        }
         if not app.config.get("TESTING"):
-            # Deep health check: verify DB and Redis
+            dependencies = {}
             try:
                 from app.database import db as _db
                 _db.execute_sql("SELECT 1")
-                checks["database"] = "connected"
+                dependencies["database"] = {"status": "connected"}
             except Exception:
-                checks["database"] = "disconnected"
+                dependencies["database"] = {"status": "disconnected"}
                 checks["status"] = "degraded"
             try:
                 from app.cache import get_redis
                 r = get_redis()
                 if r and r.ping():
-                    checks["redis"] = "connected"
+                    dependencies["redis"] = {"status": "connected"}
                 else:
-                    checks["redis"] = "disconnected"
+                    dependencies["redis"] = {"status": "disconnected"}
             except Exception:
-                checks["redis"] = "disconnected"
+                dependencies["redis"] = {"status": "disconnected"}
+            checks["dependencies"] = dependencies
+            # Keep flat fields for backward compatibility with tests
+            checks["database"] = dependencies.get("database", {}).get("status", "unknown")
+            checks["redis"] = dependencies.get("redis", {}).get("status", "unknown")
         status_code = 200 if checks["status"] == "ok" else 503
         return jsonify(checks), status_code
 

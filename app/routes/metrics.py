@@ -32,7 +32,7 @@ def metrics():
         total_urls = Url.select().count()
         active_urls = Url.select().where(Url.is_active == True).count()
         total_events = Event.select().count()
-        redirect_events = Event.select().where(Event.event_type == "redirect").count()
+        redirect_events = Event.select().where(Event.event_type == "click").count()
     except Exception:
         total_users = total_urls = active_urls = total_events = redirect_events = 0
 

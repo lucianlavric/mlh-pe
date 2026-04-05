@@ -156,7 +156,7 @@ def test_redirect_logs_event(client, sample_url):
     from app.models.event import Event
 
     client.get(f"/{sample_url.short_code}")
-    events = list(Event.select().where(Event.event_type == "redirect"))
+    events = list(Event.select().where(Event.event_type == "click"))
     assert len(events) == 1
     assert events[0].url.id == sample_url.id
 
@@ -198,7 +198,7 @@ def test_redirect_inactive_no_event(client, sample_user):
         updated_at="2025-01-01 00:00:00",
     )
     client.get(f"/{url.short_code}")
-    events = list(Event.select().where(Event.event_type == "redirect"))
+    events = list(Event.select().where(Event.event_type == "click"))
     assert len(events) == 0
 
 

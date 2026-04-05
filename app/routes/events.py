@@ -3,7 +3,11 @@ import json
 from flask import Blueprint, jsonify, request
 from playhouse.shortcuts import model_to_dict
 
+from datetime import datetime, timezone
+
 from app.models.event import Event
+from app.models.url import Url
+from app.models.user import User
 
 events_bp = Blueprint("events", __name__)
 
@@ -54,8 +58,50 @@ def list_events():
         except (ValueError, TypeError):
             return jsonify(error="Invalid user_id filter"), 400
 
+    event_type = request.args.get("event_type")
+    if event_type:
+        query = query.where(Event.event_type == event_type)
+
     events = query.paginate(page, per_page)
     return jsonify([_event_to_dict(e) for e in events])
+
+
+@events_bp.route("/events", methods=["POST"])
+def create_event():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify(error="Request body must be JSON"), 400
+
+    url_id = data.get("url_id")
+    user_id = data.get("user_id")
+    event_type = data.get("event_type")
+
+    if not url_id or not user_id or not event_type:
+        return jsonify(error="url_id, user_id, and event_type are required"), 400
+
+    try:
+        url_id = int(url_id)
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return jsonify(error="Invalid url_id or user_id"), 400
+
+    if not Url.get_or_none(Url.id == url_id):
+        return jsonify(error="URL not found"), 404
+    if not User.get_or_none(User.id == user_id):
+        return jsonify(error="User not found"), 404
+
+    details = data.get("details", {})
+    if isinstance(details, dict):
+        details = json.dumps(details)
+
+    event = Event.create(
+        url=url_id,
+        user=user_id,
+        event_type=event_type,
+        timestamp=datetime.now(timezone.utc),
+        details=details,
+    )
+    return jsonify(_event_to_dict(event)), 201
 
 
 @events_bp.route("/events/<int:event_id>")

@@ -149,7 +149,7 @@ def redirect_short_url(short_code):
         Event.create(
             url=cached["id"],
             user=cached["user_id"],
-            event_type="redirect",
+            event_type="click",
             timestamp=now,
             details=json.dumps({"short_code": short_code, "original_url": cached["original_url"]}),
         )
@@ -171,7 +171,7 @@ def redirect_short_url(short_code):
     Event.create(
         url=url,
         user=url.user,
-        event_type="redirect",
+        event_type="click",
         timestamp=now,
         details=json.dumps({"short_code": url.short_code, "original_url": url.original_url}),
     )

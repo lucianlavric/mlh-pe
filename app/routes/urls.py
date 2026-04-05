@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import string
 import random
@@ -134,6 +136,38 @@ def shorten_url():
 def create_url():
     data = request.get_json(silent=True)
     return _create_url_from_data(data)
+
+
+@urls_bp.route("/urls/bulk", methods=["POST"])
+def bulk_upload_urls():
+    if "file" not in request.files:
+        return jsonify(error="No file provided"), 400
+
+    file = request.files["file"]
+    stream = io.StringIO(file.stream.read().decode("utf-8"))
+    reader = csv.DictReader(stream)
+    rows = list(reader)
+
+    if not rows:
+        return jsonify(error="Empty CSV"), 400
+
+    imported = 0
+    with db.atomic():
+        for row in rows:
+            if "is_active" in row:
+                row["is_active"] = row["is_active"] in ("True", "true", "1")
+            Url.create(
+                user=row.get("user_id"),
+                short_code=row.get("short_code", _generate_short_code()),
+                original_url=row.get("original_url", ""),
+                title=row.get("title", ""),
+                is_active=row.get("is_active", True),
+                created_at=row.get("created_at", datetime.now(timezone.utc)),
+                updated_at=row.get("updated_at", datetime.now(timezone.utc)),
+            )
+            imported += 1
+
+    return jsonify(count=imported), 201
 
 
 @urls_bp.route("/<short_code>")
@@ -297,4 +331,4 @@ def delete_url(url_id):
     # Invalidate cache
     cache_delete(f"url:{url.short_code}")
 
-    return jsonify(message="URL deactivated"), 200
+    return jsonify(_url_to_dict(url)), 200

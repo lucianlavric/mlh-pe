@@ -343,3 +343,31 @@ def test_list_urls_filter_by_user(client, sample_url, sample_user):
     data = response.get_json()
     assert len(data) >= 1
     assert all(u["user_id"] == sample_user.id for u in data)
+
+
+def test_list_urls_filter_active(client, sample_url):
+    response = client.get("/urls?is_active=true")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert all(u["is_active"] is True for u in data)
+
+
+def test_delete_url_returns_object(client, sample_url):
+    response = client.delete(f"/urls/{sample_url.id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["is_active"] is False
+    assert data["id"] == sample_url.id
+
+
+def test_create_url_via_post_urls_with_original_url(client, sample_user):
+    response = client.post(
+        "/urls",
+        data=json.dumps({
+            "user_id": sample_user.id,
+            "original_url": "https://example.com/original-url-field",
+        }),
+        content_type="application/json",
+    )
+    assert response.status_code == 201
+    assert response.get_json()["original_url"] == "https://example.com/original-url-field"
